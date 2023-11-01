@@ -1,6 +1,13 @@
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
+
+# Unignore all dirs
+!*/
+
 # ignore all compiled files
 *.o
-client
-server
 
 .gitignore
