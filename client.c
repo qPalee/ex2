@@ -70,18 +70,15 @@ int checkRule(char *ipAddress, char *port, char buffer[])
     bzero (buffer, BUFFERLENGTH);
 
     /* wait for reply */
-    while(strcmp(buffer, "-1") != 0)
+    n = read (sockfd, buffer, BUFFERLENGTH -1);
+    if (n < 0) 
     {
-        n = read (sockfd, buffer, BUFFERLENGTH -1);
-        if (n < 0) 
-        {
-            perror ("ERROR reading from socket");
-            exit(-1);
-        }
-
-        printf("%s\n",buffer);
+        perror ("ERROR reading from socket");
+        exit(-1);
     }
-    
+
+    printf("%s\n",buffer);
+
     close(sockfd);
 
     return 0;

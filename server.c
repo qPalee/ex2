@@ -329,10 +329,38 @@ int checkPort (int port1, int port2, int port) {
     }
 }
 
+void parseQuery(struct query_t *query, char *buffer)
+{
+    /* Concatenate ipaddr */
+    int i;
+    char *tmp = (char *) malloc(6);
+
+    for(i = 0; i < 3; i++)
+    {
+        sprintf(tmp, "%d", query->ipaddr[i]);
+        strcat(buffer, tmp);
+        strcat(buffer, ".");
+    }
+
+    sprintf(tmp, "%d", query->ipaddr[3]);
+    strcat(buffer, tmp);
+
+    strcat(buffer, " ");
+
+    /* Concatenate port */
+
+    sprintf(tmp, "%d", query->port);
+    strcat(buffer, tmp);
+
+    free(tmp);
+    
+}
+
 void parseRule(struct firewallRule_t* rule, char *buffer)
 {
     int i;
     char * tmp = (char *) malloc(4);
+
     for(i = 0; i < 3; i++)
     {
         sprintf(tmp, "%d", rule->ipaddr1[i]);
@@ -497,6 +525,7 @@ void *processRequest (void *args)
 
         case 3: {
             struct firewallRules_t *tmp = allRules;
+            struct queries_t *temp;
 
             if(tmp == NULL) /* No rules stored */
             {
@@ -515,11 +544,19 @@ void *processRequest (void *args)
 
             do
             {
+                strcat(buffer, "Rule: ");
                 parseRule(tmp->rule, (char *) buffer);
-                strcat(buffer, "\n");
+                strcat(buffer, "\n"); /* Add new line */
 
-                printf("%s\n", buffer);
+                temp = &(tmp->rule->queries);
+                while(temp != NULL) /* While rule has unadded queries */
+                {
+                    strcat(buffer, "Query: ");
+                    parseQuery(temp->query, (char *) buffer);
+                    strcat(buffer, "\n");
 
+                    temp = temp->next;
+                }             
 
                 tmp = tmp->next;
 
