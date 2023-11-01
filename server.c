@@ -556,7 +556,7 @@ void *processRequest (void *args)
                 strcat(buffer, "\n"); /* Add new line */
 
                 temp = &(tmp->rule->queries);
-                while(temp != NULL) /* While rule has unadded queries */
+                while(temp->query != NULL) /* While rule has unadded queries */
                 {
                     strcat(buffer, "Query: ");
                     parseQuery(temp->query, (char *) buffer);
