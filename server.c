@@ -525,12 +525,12 @@ void *processRequest (void *args)
 
             } while (tmp != NULL);
 
-            n = write (threadArgs->newsockfd, buffer, BUFFERLENGTH);
-                if (n < 0) 
-                {
-                    perror ("ERROR writing to socket");
-                    exit(-1);
-                }
+            n = write (threadArgs->newsockfd, buffer, strlen(buffer));
+            if (n < 0) 
+            {
+                perror ("ERROR writing to socket");
+                exit(-1);
+            }
 
             bzero(buffer, BUFFERLENGTH);
             n = sprintf(buffer, "-1");
