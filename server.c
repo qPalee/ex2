@@ -70,7 +70,16 @@ struct firewallRules_t
 
 void addQuery(struct firewallRule_t *rule, struct query_t *query)
 {
-    
+    struct query_t *newQuery;
+    newQuery = malloc(sizeof(struct query_t));
+
+    int i;
+    for(i = 0; i < 4; i++)
+    {
+        newQuery->ipaddr[i] = query->ipaddr[i];
+    }
+
+    newQuery->port = query->port;
 }
 
 struct firewallRules_t * addRule (struct firewallRules_t * rules, struct firewallRule_t *rule)
@@ -462,13 +471,11 @@ void *processRequest (void *args)
                 break;
             }
 
-
             int i;
             for(i = 0; i < 4; i++)
             {
                 query.ipaddr[i] = newRule->ipaddr1[i];
             }
-            
 
             query.port = newRule->port1;
 
