@@ -53,7 +53,7 @@ struct firewallRule_t
     int ipaddr2[4];
     int port1;
     int port2;
-    struct queries_t queries;
+    struct queries_t *queries;
 };
 
 struct query_t
@@ -68,18 +68,14 @@ struct firewallRules_t
     struct firewallRules_t *next;
 };
 
-void addQuery(struct firewallRule_t *rule, struct query_t *query)
+struct queries_t * addQuery(struct queries_t *queries, struct query_t *query)
 {
-    struct query_t *newQuery;
-    newQuery = malloc(sizeof(struct query_t));
+    struct queries_t *newQuery;
 
-    int i;
-    for(i = 0; i < 4; i++)
-    {
-        newQuery->ipaddr[i] = query->ipaddr[i];
-    }
-
-    newQuery->port = query->port;
+    newQuery = malloc(sizeof(struct queries_t));
+    newQuery->query = query;
+    newQuery->next = queries;
+    return newQuery;
 }
 
 struct firewallRules_t * addRule (struct firewallRules_t * rules, struct firewallRule_t *rule)
@@ -479,34 +475,38 @@ void *processRequest (void *args)
 
             query.port = newRule->port1;
 
-            struct firewallRules_t *tmp = allRules;
             struct firewallRule_t *rule;
             bool packetAccepted = false;
 
-            while(tmp && !packetAccepted) {
-            res = checkPort (tmp->rule->port1, tmp->rule->port2, query.port);
-            if (res < 0) {
-                break;
-            }
+            tmp = allRules;
+            while(tmp != NULL && !packetAccepted) 
+            {
+                res = checkPort (tmp->rule->port1, tmp->rule->port2, query.port);
+                if (res < 0 || res > 0) {
+                    tmp = tmp->next;
+                    continue;
+                }
 
-            if (res == 0) {
-                packetAccepted = checkIPAddress (tmp->rule->ipaddr1, tmp->rule->ipaddr2, query.ipaddr);
-                rule = tmp->rule;
-            }
-
-            tmp = tmp->next;
+                if (res == 0) {
+                    packetAccepted = checkIPAddress (tmp->rule->ipaddr1, tmp->rule->ipaddr2, query.ipaddr);
+                    printf("%d\n", packetAccepted);
+                    rule = tmp->rule;
+                    tmp = tmp->next;
+                }
 
             }
 
             if(packetAccepted) /* Connection accepted */
             {
                 n = sprintf(buffer, "Connection accepted");
-                addQuery(rule, &query);
+                rule->queries = addQuery(rule->queries, &query);
                 break;
             }
 
+
             n = sprintf(buffer, "Connection rejected");
             break;
+
         }
 
         case 2: /* Delete Rule */
@@ -532,7 +532,6 @@ void *processRequest (void *args)
 
         case 3: {
             struct firewallRules_t *tmp = allRules;
-            struct queries_t *temp;
 
             if(tmp == NULL) /* No rules stored */
             {
@@ -549,23 +548,34 @@ void *processRequest (void *args)
 
             bzero(buffer, BUFFERLENGTH);
 
+            struct queries_t *temp;
+            temp = malloc(sizeof(struct queries_t));
+
             do
             {
                 strcat(buffer, "Rule: ");
                 parseRule(tmp->rule, (char *) buffer);
                 strcat(buffer, "\n"); /* Add new line */
 
-                temp = &(tmp->rule->queries);
-                while(temp->query != NULL) /* While rule has unadded queries */
+                temp = tmp->rule->queries;
+                
+                if(temp != NULL)
                 {
-                    strcat(buffer, "Query: ");
-                    parseQuery(temp->query, (char *) buffer);
-                    strcat(buffer, "\n");
+                    while(temp->query != NULL) /* While rule has unadded queries */
+                    {
+                        strcat(buffer, "Query: ");
+                        parseQuery(temp->query, (char *) buffer);
+                        strcat(buffer, "\n");
 
-                    temp = temp->next;
-                }             
+                        if(temp->next == NULL)
+                            break;
+
+                        temp = temp->next;
+                    }             
+                }
 
                 tmp = tmp->next;
+
 
             } while (tmp != NULL);
 
@@ -751,7 +761,7 @@ int main (int argc, char **argv)
         }
 
         /* create thread for processing of connection */
-        threadIndex =findThreadIndex();
+        threadIndex = findThreadIndex();
         threadArgs->threadIndex = threadIndex;
         if (pthread_attr_init (&(serverThreads[threadIndex].attributes))) 
         {
