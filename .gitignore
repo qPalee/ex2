@@ -11,3 +11,5 @@
 *.o
 
 .gitignore
+*.sh
+*.txt
