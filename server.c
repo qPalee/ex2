@@ -68,6 +68,8 @@ struct firewallRules_t
     struct firewallRules_t *next;
 };
 
+
+
 struct queries_t * addQuery(struct queries_t *queries, struct query_t *query)
 {
     struct queries_t *newQuery;
@@ -92,10 +94,12 @@ int compareIPAddresses (int *ipaddr1, int *ipaddr2)
 {
     int i;
     for (i = 0; i < 4; i++) {
-	if (ipaddr1[i] > ipaddr2[i]) {
+	if (ipaddr1[i] > ipaddr2[i]) 
+    {
 	    return 1;
 	}
-	else if (ipaddr1[i] < ipaddr2[i]) {
+	else if (ipaddr1[i] < ipaddr2[i]) 
+    {
 	    return -1;
 	}
     }
@@ -106,14 +110,31 @@ int compareIPAddresses (int *ipaddr1, int *ipaddr2)
 int compareRules (struct firewallRule_t *rule1, struct firewallRule_t *rule2) 
 {
 
-    if ((rule1->port1) < (rule2->port1)) {
-	return -1;
+    if ((rule1->port1) < (rule2->port1)) 
+    {
+        return -1;
     }
-    else if (rule1->port1 > rule2->port1) {
-	return 1;
+    else if (rule1->port1 > rule2->port1) 
+    {
+        return 1;
     }
     else 
-	return (compareIPAddresses (rule1->ipaddr1, rule2->ipaddr1));
+        return (compareIPAddresses (rule1->ipaddr1, rule2->ipaddr1));
+}
+
+void updateList(struct firewallRules_t * linkedList, struct firewallRule_t *oldRule, struct firewallRule_t *newRule)
+{
+
+    while(linkedList != NULL)
+    {
+        if(compareRules(linkedList->rule, oldRule) == 0)
+        {
+            *(linkedList->rule) = *newRule;
+            return;
+        }
+
+        linkedList = linkedList->next;
+    }
 }
 
 
@@ -277,6 +298,10 @@ int deleteRule (struct firewallRules_t * rules, struct firewallRule_t *rule)
     if(compareRules(rules->rule, rule) == 0) /* Rule is first element in linked list */
     {
         struct firewallRules_t *tmp = rules;
+        if(rules->rule->queries != NULL)
+        {
+            free(rules->rule->queries);
+        }
         rules = rules->next;
         free(tmp);
         return 1;
@@ -288,6 +313,10 @@ int deleteRule (struct firewallRules_t * rules, struct firewallRule_t *rule)
     if(compareRules(rules->next->rule, rule) == 0) /* If next rule == rule */
     {
         struct firewallRules_t *tmp = rules->next;
+        if(rules->rule->queries != NULL)
+        {
+            free(rules->rule->queries);
+        }
         rules->next = rules->next->next; /* Set next rule to the next rules next rule *, 1->next = 3 */
         free(tmp);
         return 1;
@@ -448,6 +477,25 @@ void *processRequest (void *args)
                 break;
             }
 
+            /* Check if rule is alrewady in list */
+            struct firewallRules_t *tmp = allRules;
+            bool ruleFound = false;
+            while(tmp && !ruleFound)
+            {
+                if(compareRules(tmp->rule, newRule) == 0)
+                {
+                    ruleFound = true;
+                }
+
+                tmp = tmp->next;
+            }
+
+            if(ruleFound)
+            {
+                n = sprintf(buffer, "Rule already in list");
+                break;
+            }
+
             /* Rule is valid */
 
             allRules = addRule(allRules, newRule);
@@ -459,7 +507,6 @@ void *processRequest (void *args)
         { 
          /* Check Rule */
              
-            struct query_t query;
             int res;
             if((newRule = readRule(message)) == NULL) /* If ip or port is invalid */
             {
@@ -467,13 +514,16 @@ void *processRequest (void *args)
                 break;
             }
 
+            struct query_t *query;
+            query = malloc(sizeof(struct query_t));
+
             int i;
             for(i = 0; i < 4; i++)
             {
-                query.ipaddr[i] = newRule->ipaddr1[i];
+                query->ipaddr[i] = newRule->ipaddr1[i];
             }
 
-            query.port = newRule->port1;
+            query->port = newRule->port1;
 
             struct firewallRule_t *rule;
             bool packetAccepted = false;
@@ -481,15 +531,16 @@ void *processRequest (void *args)
             tmp = allRules;
             while(tmp != NULL && !packetAccepted) 
             {
-                res = checkPort (tmp->rule->port1, tmp->rule->port2, query.port);
-                if (res < 0 || res > 0) {
+                res = checkPort (tmp->rule->port1, tmp->rule->port2, query->port);
+                if (res < 0 || res > 0) 
+                {
                     tmp = tmp->next;
                     continue;
                 }
 
-                if (res == 0) {
-                    packetAccepted = checkIPAddress (tmp->rule->ipaddr1, tmp->rule->ipaddr2, query.ipaddr);
-                    printf("%d\n", packetAccepted);
+                if (res == 0) 
+                {
+                    packetAccepted = checkIPAddress (tmp->rule->ipaddr1, tmp->rule->ipaddr2, query->ipaddr);
                     rule = tmp->rule;
                     tmp = tmp->next;
                 }
@@ -499,10 +550,11 @@ void *processRequest (void *args)
             if(packetAccepted) /* Connection accepted */
             {
                 n = sprintf(buffer, "Connection accepted");
-                rule->queries = addQuery(rule->queries, &query);
+                struct firewallRule_t *tmpRule = rule;
+                tmpRule->queries = addQuery(rule->queries, query);
+                updateList(allRules, rule, tmpRule);
                 break;
             }
-
 
             n = sprintf(buffer, "Connection rejected");
             break;
@@ -602,7 +654,6 @@ void *processRequest (void *args)
 
     isExecuted++;
     pthread_mutex_unlock (&mut); /* release the lock */
-
     if(operation != 3)
     {
         /* send the reply back */
@@ -672,7 +723,7 @@ void *waitForThreads(void *args)
         {
             res = pthread_join (serverThreads[i].pthreadInfo, NULL);
             if (res != 0) {
-                fprintf (stderr, "thread joining failed, exiting\n");
+                fprintf (stderr, "Thread joining failed, exiting\n");
                 exit (1);
             }
 
