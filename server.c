@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdio.h>
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -68,8 +67,6 @@ struct firewallRules_t
     struct firewallRules_t *next;
 };
 
-
-
 struct queries_t * addQuery(struct queries_t *queries, struct query_t *query)
 {
     struct queries_t *newQuery;
@@ -136,7 +133,6 @@ void updateList(struct firewallRules_t * linkedList, struct firewallRule_t *oldR
         linkedList = linkedList->next;
     }
 }
-
 
 /* parses one IP address. Returns NULL if text does not start with a valid IP address, and a pointer  to the first character after the valid IP address otherwise */
 char *parseIPaddress (int *ipaddr, char *text) 
@@ -300,9 +296,11 @@ int deleteRule (struct firewallRules_t * rules, struct firewallRule_t *rule)
         struct firewallRules_t *tmp = rules;
         if(rules->rule->queries != NULL)
         {
+            rules->rule->queries = NULL;
             free(rules->rule->queries);
         }
         rules = rules->next;
+        tmp = NULL;
         free(tmp);
         return 1;
     }
@@ -315,9 +313,11 @@ int deleteRule (struct firewallRules_t * rules, struct firewallRule_t *rule)
         struct firewallRules_t *tmp = rules->next;
         if(rules->rule->queries != NULL)
         {
+            rules->rule->queries = NULL;
             free(rules->rule->queries);
         }
         rules->next = rules->next->next; /* Set next rule to the next rules next rule *, 1->next = 3 */
+        tmp = NULL;
         free(tmp);
         return 1;
     }
