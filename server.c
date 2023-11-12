@@ -4,7 +4,7 @@
 #include <netinet/in.h>
 #include <ctype.h>
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -84,6 +84,7 @@ struct firewallRules_t * addRule (struct firewallRules_t * rules, struct firewal
     newRule = malloc(sizeof(struct firewallRules_t));
     newRule->rule = rule;
     newRule->next = rules;
+    newRule->rule->queries = NULL;
     return newRule;
 }
 
@@ -285,44 +286,60 @@ struct firewallRule_t *readRule (char * line)
     return NULL;
 }
 
-int deleteRule (struct firewallRules_t * rules, struct firewallRule_t *rule)
+int deleteRule (struct firewallRules_t **rules_ref, struct firewallRule_t *rule)
 {
-
-    if(rules == NULL) /* List is empty */
-        return -1;
-
-    if(compareRules(rules->rule, rule) == 0) /* Rule is first element in linked list */
-    {
-        struct firewallRules_t *tmp = rules;
-        if(rules->rule->queries != NULL)
+    struct firewallRules_t *temp = *rules_ref, *prev; 
+  
+    // If head node itself holds the key to be deleted 
+    if (temp != NULL && (compareRules(temp->rule, rule) == 0)) 
+    { 
+        *rules_ref = temp->next; // Changed head 
+        /* Remove queries from temp */
+        if(temp->rule->queries != NULL)
         {
-            rules->rule->queries = NULL;
-            free(rules->rule->queries);
+            struct queries_t *tmp = temp->rule->queries;
+            struct queries_t *freeVar;
+            while(tmp != NULL)
+            {
+                freeVar = tmp;
+                tmp = tmp->next;
+                free(freeVar);
+            }
         }
-        rules = rules->next;
-        tmp = NULL;
-        free(tmp);
-        return 1;
-    }
+        free(temp); // free old head 
+        return 1; 
+    } 
+  
+    // Search for the key to be deleted, keep track of the 
+    // previous node as we need to change 'prev->next' 
+    while (temp != NULL && (compareRules(temp->rule, rule) != 0))
+    { 
+        prev = temp; 
+        temp = temp->next; 
+    } 
+  
+    // If key was not present in linked list 
+    if (temp == NULL) 
+        return 0; 
+  
+    // Unlink the node from linked list 
+    prev->next = temp->next; 
 
-    if(rules->next == NULL) /* Rule not in list */
-        return -1;
-
-    if(compareRules(rules->next->rule, rule) == 0) /* If next rule == rule */
-    {
-        struct firewallRules_t *tmp = rules->next;
-        if(rules->rule->queries != NULL)
+    /* Remove queries from temp */
+    if(temp->rule->queries != NULL)
         {
-            rules->rule->queries = NULL;
-            free(rules->rule->queries);
+            struct queries_t *tmp = temp->rule->queries;
+            struct queries_t *freeVar;
+            while(tmp != NULL)
+            {
+                freeVar = tmp;
+                tmp = tmp->next;
+                free(freeVar);
+            }
         }
-        rules->next = rules->next->next; /* Set next rule to the next rules next rule *, 1->next = 3 */
-        tmp = NULL;
-        free(tmp);
-        return 1;
-    }
-
-    return deleteRule(rules->next, rule);
+  
+    free(temp); // Free memory 
+    return 1;
 
 }
 
@@ -570,7 +587,7 @@ void *processRequest (void *args)
             }
 
             /* Rule is valid */
-            int num = deleteRule(allRules, newRule);
+            int num = deleteRule(&allRules, newRule);
 
             if(num == 1)
             {
